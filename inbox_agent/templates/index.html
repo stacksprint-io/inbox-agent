@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inbox Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0e14; --panel: #12151f; --panel-2: #171b27; --line: #232838;
+      --text: #e6e9f0; --dim: #8a90a3; --accent: #7c5cfc; --ok: #3fb950; --bad: #f0465a;
+    }
+    body { background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; }
+    .brand { font-weight: 700; letter-spacing: -.01em; }
+    .brand .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 12px var(--ok); margin-right: 10px; }
+    .rule { color: var(--dim); font-size: .9rem; }
+    .rule b { color: var(--text); }
+    .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+    .stat .n { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .stat .l { color: var(--dim); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
+    .card-x { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
+    .draft { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; color: var(--text); font-size: .95rem; resize: vertical; }
+    .draft:focus { background: var(--panel-2); color: var(--text); border-color: var(--accent); box-shadow: 0 0 0 3px #7c5cfc33; }
+    .from { color: var(--dim); font-size: .85rem; }
+    .reason { color: var(--dim); font-size: .85rem; font-style: italic; }
+    .tag { font-family: "JetBrains Mono", monospace; font-size: .75rem; padding: 3px 9px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+    .tag-bug { color: #f0465a; border-color: #f0465a66; background: #f0465a14; }
+    .tag-billing { color: #f5a623; border-color: #f5a62366; background: #f5a62314; }
+    .tag-support { color: #4493f8; border-color: #4493f866; background: #4493f814; }
+    .tag-feature-request { color: #a78bfa; border-color: #a78bfa66; background: #a78bfa14; }
+    .tag-meeting { color: #2dd4bf; border-color: #2dd4bf66; background: #2dd4bf14; }
+    .tag-newsletter { color: #8a90a3; border-color: #8a90a366; background: #8a90a314; }
+    .tag-feedback { color: #3fb950; border-color: #3fb95066; background: #3fb95014; }
+    .tag-suspicious { color: #fff; border-color: #f0465a; background: #f0465a; }
+    .btn-approve { background: var(--ok); border: 0; color: #04140a; font-weight: 600; }
+    .btn-approve:hover { background: #4cc95e; color: #04140a; }
+    .btn-reject { background: transparent; border: 1px solid var(--line); color: var(--dim); }
+    .btn-reject:hover { border-color: var(--bad); color: var(--bad); }
+    .btn-run { background: var(--accent); border: 0; font-weight: 600; }
+    .btn-run:hover { background: #8d72fd; }
+    .table { --bs-table-bg: transparent; --bs-table-color: var(--text); --bs-table-border-color: var(--line); }
+    .table > :not(caption) > * > * { border-bottom-color: var(--line); padding: .7rem .5rem; }
+    .muted { color: var(--dim); }
+    .empty { color: var(--dim); text-align: center; padding: 40px 0; }
+    .spinner-border { width: 1rem; height: 1rem; border-width: .15em; }
+  </style>
+</head>
+<body>
+<div class="container py-4" style="max-width: 1100px">
+  <div class="d-flex align-items-center justify-content-between mb-1">
+    <div class="brand fs-4"><span class="dot"></span>Inbox Agent</div>
+    <form method="post" action="/triage">
+      <button class="btn btn-run btn-primary px-4" {% if running %}disabled{% endif %}>
+        {% if running %}<span class="spinner-border me-2"></span>Triaging…{% else %}Run triage{% endif %}
+      </button>
+    </form>
+  </div>
+  <p class="rule mb-4">Reads, labels and drafts. <b>It never sends.</b> You approve; approved drafts appear in Gmail for you to send.</p>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3"><div class="stat"><div class="n">{{ stats.triaged }}</div><div class="l">Triaged</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat"><div class="n">{{ stats.pending }}</div><div class="l">Waiting for you</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat"><div class="n">{{ stats.approved }}</div><div class="l">Approved</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat"><div class="n">${{ "%.3f"|format(stats.cost) }}</div><div class="l">Model cost</div></div></div>
+  </div>
+
+  <h2 class="h6 text-uppercase muted mb-3" style="letter-spacing:.08em">Drafts waiting for review</h2>
+  {% for draft, t in queue %}
+  <div class="card-x p-4 mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+      <div>
+        <div class="fw-semibold">{{ t.subject }}</div>
+        <div class="from">{{ t.sender }}</div>
+      </div>
+      <span class="tag tag-{{ t.label }}">{{ t.label }}</span>
+    </div>
+    <div class="reason mb-3">{{ t.reason }}</div>
+    <form method="post">
+      <textarea class="form-control draft mb-3" name="body" rows="5">{{ draft.body }}</textarea>
+      <div class="d-flex gap-2 justify-content-end">
+        <button class="btn btn-reject px-3" formaction="/drafts/{{ draft.id }}/reject">Reject</button>
+        <button class="btn btn-approve px-4" formaction="/drafts/{{ draft.id }}/approve">Approve</button>
+      </div>
+    </form>
+  </div>
+  {% else %}
+  <div class="card-x empty mb-3">Nothing waiting. Run triage to check the inbox.</div>
+  {% endfor %}
+
+  <h2 class="h6 text-uppercase muted mt-5 mb-3" style="letter-spacing:.08em">Recently triaged</h2>
+  <div class="card-x px-3">
+    <table class="table mb-0 align-middle">
+      <tbody>
+      {% for t in recent %}
+        <tr>
+          <td style="width:150px"><span class="tag tag-{{ t.label }}">{{ t.label }}</span></td>
+          <td><div class="fw-medium">{{ t.subject }}</div><div class="reason">{{ t.reason }}</div></td>
+          <td class="text-end muted" style="font-variant-numeric: tabular-nums">${{ "%.4f"|format(t.cost_usd) }}</td>
+        </tr>
+      {% else %}
+        <tr><td class="empty">No emails triaged yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+  // Grow each draft box to fit its text, so the whole reply is visible before you approve it.
+  document.querySelectorAll("textarea.draft").forEach((t) => {
+    const fit = () => { t.style.height = "auto"; t.style.height = t.scrollHeight + 4 + "px"; };
+    fit(); t.addEventListener("input", fit);
+  });
+</script>
+{% if running %}
+<script>
+  // While the agent runs, refresh the page as each email is triaged.
+  setTimeout(() => location.reload(), 2500);
+</script>
+{% endif %}
+</body>
+</html>
