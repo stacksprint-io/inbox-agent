@@ -12,12 +12,18 @@ from __future__ import annotations
 
 import re
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from claude_agent_sdk import (
+    AssistantMessage,
     ClaudeAgentOptions,
     HookMatcher,
     ResultMessage,
+    TextBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
     create_sdk_mcp_server,
     query,
     tool,
@@ -124,8 +130,8 @@ def build_options(decision: Decision) -> ClaudeAgentOptions:
     )
 
 
-async def triage(email: Email) -> Decision:
-    """Run the agent on one email."""
+async def triage(email: Email, show: Callable[[str], None] | None = None) -> Decision:
+    """Run the agent on one email. Pass `show` (e.g. print) to watch each step of the loop."""
     decision = Decision()
     body = email.body.replace("</untrusted_email>", "")
     prompt = (
@@ -134,9 +140,29 @@ async def triage(email: Email) -> Decision:
         "</untrusted_email>"
     )
     async for message in query(prompt=prompt, options=build_options(decision)):
+        if show:
+            _show(message, show)
         if isinstance(message, ResultMessage):
             decision.cost_usd = message.total_cost_usd or 0.0
     return decision
+
+
+def _show(message, show: Callable[[str], None]) -> None:
+    """One line per step: what the model said or called, and what came back."""
+    if isinstance(message, AssistantMessage):
+        for block in message.content:
+            if isinstance(block, ToolUseBlock):
+                args = ", ".join(f"{k}={v!r}" for k, v in block.input.items())
+                show(f"  model calls  {block.name.removeprefix('mcp__inbox__')}({args})")
+            elif isinstance(block, TextBlock) and block.text.strip():
+                show(f"  model says   {block.text.strip()}")
+    elif isinstance(message, UserMessage) and isinstance(message.content, list):
+        for block in message.content:
+            if isinstance(block, ToolResultBlock):
+                text = block.content if isinstance(block.content, str) else " ".join(c.get("text", "") for c in block.content or [])
+                show(f"  {'error' if block.is_error else 'result'}       {text}")
+    elif isinstance(message, ResultMessage):
+        show(f"  done         {message.num_turns} turns, ${message.total_cost_usd or 0:.4f}")
 
 
 def _ok(text: str) -> dict:

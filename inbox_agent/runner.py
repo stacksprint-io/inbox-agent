@@ -8,13 +8,15 @@ from .db import Draft, Triage, already_triaged
 from .gmail import GmailClient
 
 
-async def triage_inbox(gmail: GmailClient, session: Session, limit: int = 25) -> list[tuple[str, Decision]]:
+async def triage_inbox(gmail: GmailClient, session: Session, limit: int = 25, show=None) -> list[tuple[str, Decision]]:
     results = []
     for message_id in gmail.list_unread(limit):
         if already_triaged(session, message_id):
             continue
         email = gmail.get_message(message_id)
-        decision = await triage(email)
+        if show:
+            show(f"\n{email.sender}  ·  {email.subject}")
+        decision = await triage(email, show)
         if decision.label:
             gmail.add_label(message_id, decision.label)
         session.add(Triage(

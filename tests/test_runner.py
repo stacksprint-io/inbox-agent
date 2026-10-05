@@ -7,7 +7,7 @@ from inbox_agent.gmail import GmailClient
 
 
 def test_labels_in_gmail_and_queues_drafts_without_touching_gmail_drafts(service, session, monkeypatch):
-    async def fake_triage(email):
+    async def fake_triage(email, show=None):
         if "AI assistant" in email.subject:
             return Decision(label="suspicious", reason="instructions aimed at the assistant")
         return Decision(label="bug", reason="export broken", draft="Thanks, a person will follow up.")
