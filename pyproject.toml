@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "inbox-agent"
 version = "0.1.0"
@@ -16,6 +20,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "httpx"]
+
+[tool.setuptools]
+packages = ["inbox_agent"]
+
+[tool.setuptools.package-data]
+inbox_agent = ["templates/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
