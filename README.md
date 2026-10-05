@@ -31,7 +31,7 @@ Python 3.12 or newer. The SDK package brings its own Claude Code engine, so ther
 ```bash
 git clone https://github.com/stacksprint-io/inbox-agent.git
 cd inbox-agent
-python3 -m venv .venv && source .venv/bin/activate
+python3.12 -m venv .venv && source .venv/bin/activate   # or any Python 3.12+
 pip install -e ".[dev]"
 ```
 
