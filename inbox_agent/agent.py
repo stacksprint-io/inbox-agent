@@ -19,6 +19,7 @@ from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
     HookMatcher,
+    ProcessError,
     ResultMessage,
     TextBlock,
     ToolResultBlock,
@@ -139,11 +140,18 @@ async def triage(email: Email, show: Callable[[str], None] | None = None) -> Dec
         f"From: {email.sender}\nSubject: {email.subject}\n\n{body}\n"
         "</untrusted_email>"
     )
-    async for message in query(prompt=prompt, options=build_options(decision)):
-        if show:
-            _show(message, show)
-        if isinstance(message, ResultMessage):
-            decision.cost_usd = message.total_cost_usd or 0.0
+    finished = False
+    try:
+        async for message in query(prompt=prompt, options=build_options(decision)):
+            if show:
+                _show(message, show)
+            if isinstance(message, ResultMessage):
+                decision.cost_usd = message.total_cost_usd or 0.0
+                finished = True
+    except ProcessError:
+        if not finished:
+            raise  # a real failure, before any result came back
+        # It hit max_turns: the SDK reports the result, then exits with an error. Keep the decision.
     return decision
 
 

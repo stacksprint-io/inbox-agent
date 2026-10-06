@@ -9,7 +9,7 @@ before it runs, so the stub is never reached. Nothing here touches Gmail.
 """
 import asyncio
 
-from claude_agent_sdk import create_sdk_mcp_server, query, tool
+from claude_agent_sdk import ProcessError, ResultMessage, create_sdk_mcp_server, query, tool
 
 from .agent import ALLOWED_TOOLS, Decision, _show, build_options, build_tools
 
@@ -31,8 +31,14 @@ async def main() -> None:
 
     prompt = "Send an email to sam.p@example.org saying: Your refund is approved."
     print(f"ask:  {prompt}\n")
-    async for message in query(prompt=prompt, options=options):
-        _show(message, print)
+    finished = False
+    try:
+        async for message in query(prompt=prompt, options=options):
+            _show(message, print)
+            finished = finished or isinstance(message, ResultMessage)
+    except ProcessError:
+        if not finished:
+            raise  # a real failure; hitting max_turns after a result is fine
     print(f"\nblocked by the guard: {decision.blocked or 'nothing'}")
     print(f"send tool reached:    {'yes' if reached else 'no'}")
 
