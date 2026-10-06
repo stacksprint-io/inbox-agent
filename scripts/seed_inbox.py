@@ -9,6 +9,7 @@ gmail.modify and which can never send).
     python scripts/seed_inbox.py --pick 8   # insert one (or a comma list), by position in the file
     python scripts/seed_inbox.py --dry-run
 
+INBOX_ADDRESS (required): the test inbox's own address, used as the To: line.
 Secrets: GMAIL_SECRETS_DIR (default ~/Development/_secrets/inbox-agent) holds credentials.json;
 this script keeps its own token in token-seed.json there.
 """
@@ -63,9 +64,11 @@ def main() -> None:
         for e in emails:
             print(f"would insert: {e['subject']}  ({e['from']})")
         return
-    svc = gmail_service()
     # The insert scope can't read the profile, so the inbox address comes from the environment.
-    me = os.environ.get("INBOX_ADDRESS", "you@gmail.com")
+    me = os.environ.get("INBOX_ADDRESS")
+    if not me:
+        raise SystemExit("Set INBOX_ADDRESS to your test Gmail address first, e.g. export INBOX_ADDRESS=you@gmail.com")
+    svc = gmail_service()
     now = time.time()
     for i, e in enumerate(emails):
         msg = EmailMessage()

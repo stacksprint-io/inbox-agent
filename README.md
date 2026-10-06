@@ -96,6 +96,7 @@ The token is saved next to `credentials.json`, readable only by you. While the a
 `seed/emails.json` holds 12 realistic support emails: a refund, a bug report, a phishing attempt, an email that tries to give the agent orders, and so on. This copies them into the test inbox as unread mail. Nothing is sent from or to anyone:
 
 ```bash
+export INBOX_ADDRESS=your-test-account@gmail.com   # the To: line of the test emails
 python scripts/seed_inbox.py --dry-run   # list what it would insert
 python scripts/seed_inbox.py             # insert all 12
 python scripts/seed_inbox.py --pick 10   # insert one, by position
