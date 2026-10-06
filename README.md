@@ -159,6 +159,16 @@ An agent is a model running in a loop with tools, a goal and limits. Here the lo
 | `inbox_agent/auth.py` | the one-time Google sign-in |
 | `tests/` | tools, guard, runner, dashboard and the never-send test, all with a fake Gmail |
 
+### The dashboard (frontend)
+
+There's no separate frontend project and no build step. The whole UI is one server-rendered page:
+
+- **`inbox_agent/templates/index.html`**: a Jinja2 template styled with Bootstrap 5 from a CDN. It renders the stat cards, the drafts waiting for review (each in an editable text box with **Approve** and **Reject**), and the recently triaged emails with their label and cost.
+- **`inbox_agent/main.py`**: the FastAPI routes behind it. `GET /` queries SQLite and renders the page. `POST /triage` starts a run in the background. `POST /drafts/{id}/approve` creates the Gmail draft from whatever text is in the box, and `POST /drafts/{id}/reject` discards it.
+- **JavaScript**: a few lines of plain JS at the bottom of the template. One grows each draft box to fit its text, so you read the whole reply before approving. The other reloads the page every 2.5 seconds while a run is going, so each email appears as it's decided.
+
+Buttons are plain HTML forms that post to those routes, so there's no client-side state to manage. To change the look, edit the `<style>` block at the top of the template.
+
 Email bodies are untrusted input. An email that tells the assistant to do something is just text to triage: the system prompt says to label it `suspicious` and draft nothing.
 
 ## Can an agent send email?
