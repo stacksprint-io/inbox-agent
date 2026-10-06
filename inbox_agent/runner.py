@@ -8,7 +8,7 @@ from .db import Draft, Triage, already_triaged
 from .gmail import GmailClient
 
 
-async def triage_inbox(gmail: GmailClient, session: Session, limit: int = 25, show=None) -> list[tuple[str, Decision]]:
+async def triage_inbox(gmail: GmailClient, session: Session, limit: int = 25, show=None, done=None) -> list[tuple[str, Decision]]:
     results = []
     for message_id in gmail.list_unread(limit):
         if already_triaged(session, message_id):
@@ -27,4 +27,6 @@ async def triage_inbox(gmail: GmailClient, session: Session, limit: int = 25, sh
             session.add(Draft(gmail_id=email.id, body=decision.draft))  # pending: nothing in Gmail yet
         session.commit()
         results.append((email.subject, decision))
+        if done:
+            done(email.subject, decision)  # report each email as soon as it's decided
     return results
