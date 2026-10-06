@@ -6,6 +6,7 @@ gmail.modify and which can never send).
 
     python scripts/seed_inbox.py            # insert all
     python scripts/seed_inbox.py --only 3   # insert the first 3
+    python scripts/seed_inbox.py --pick 8   # insert one (or a comma list), by position in the file
     python scripts/seed_inbox.py --dry-run
 
 Secrets: GMAIL_SECRETS_DIR (default ~/Development/_secrets/inbox-agent) holds credentials.json;
@@ -50,12 +51,14 @@ def gmail_service():
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", type=int, default=None)
+    ap.add_argument("--pick", default=None, help="comma-separated positions in seed/emails.json")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-browser", action="store_true")
     args = ap.parse_args()
     global NO_BROWSER
     NO_BROWSER = args.no_browser
-    emails = json.loads((ROOT / "seed" / "emails.json").read_text())[: args.only]
+    emails = json.loads((ROOT / "seed" / "emails.json").read_text())
+    emails = [emails[int(i)] for i in args.pick.split(",")] if args.pick else emails[: args.only]
     if args.dry_run:
         for e in emails:
             print(f"would insert: {e['subject']}  ({e['from']})")
