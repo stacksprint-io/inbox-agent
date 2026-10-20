@@ -83,6 +83,12 @@ class GmailClient:
         ).execute()
         return draft["id"]
 
+    def mark_read(self, message_id: str) -> None:
+        """Drop the UNREAD label, so a triaged newsletter stops showing as new."""
+        self._service.users().messages().modify(
+            userId="me", id=message_id, body={"removeLabelIds": ["UNREAD"]}
+        ).execute()
+
     def _label_id(self, name: str) -> str:
         if not self._labels:
             resp = self._service.users().labels().list(userId="me").execute()

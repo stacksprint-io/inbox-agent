@@ -19,6 +19,8 @@ async def triage_inbox(gmail: GmailClient, session: Session, limit: int = 25, sh
         decision = await triage(email, show)
         if decision.label:
             gmail.add_label(message_id, decision.label)
+        if decision.label == "newsletter":
+            gmail.mark_read(message_id)
         session.add(Triage(
             gmail_id=email.id, thread_id=email.thread_id, sender=email.sender, subject=email.subject,
             label=decision.label or "unlabelled", reason=decision.reason, cost_usd=decision.cost_usd,
